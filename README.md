@@ -1,17 +1,27 @@
 # Macrophage Spatial Polarity Index (MSPI) in Breast Cancer
 
-Analysis code for the manuscript: *Macrophage-T cell spatial polarity predicts prognosis in luminal breast cancer*.
+Analysis code for the manuscript *Macrophage spatial polarity to T cells predicts prognosis in young women with luminal breast cancer*.
 
 ## Overview
 
-This repository contains the scripts that generate all figures and tables reported in the manuscript. The analysis quantifies a density-independent spatial affinity metric between macrophage subtypes (M1, M2) and T cells in multiplex immunohistochemistry (mIHC) breast cancer tissue sections, and evaluates its prognostic value as the Macrophage Spatial Polarity Index (MSPI).
+This repository contains the scripts that compute the spatial affinity scores and generate the figures and tables reported in the manuscript. The analysis quantifies a density-independent spatial affinity metric between macrophage subtypes (M1-like, M2-like) and T cells in multiplex immunohistochemistry (mIHC) breast cancer tissue, and evaluates its prognostic value as the Macrophage Spatial Polarity Index (MSPI).
+
+## The affinity score
+
+For every T cell (anchor), the scripts record the nearest-neighbour distance (NND) to the nearest M1-like (or M2-like) macrophage, and to the nearest cell of a random subsample of the total macrophage pool drawn to the same size (repeated 5 times). A nearer neighbour closer than 1 um is treated as the same position and skipped. Per patient, NNDs at or above a distance cap (set at the top of each affinity script) are excluded, separately for the subset and the pool, and
+
+    delta = mean(subset NND) / (mean(pool NND) + mean(subset NND))
+
+delta = 0.5 means no preference; values below 0.5 mean that the subset lies closer to T cells than the macrophage pool as a whole. Script 05 negates delta, so higher scores mean higher affinity, and defines MSPI = M2 score - M1 score.
 
 ## Repository structure
 
 ```
 ├── python/
-│   └── 01_affinity_computation.py       # Core affinity metric computation
+│   └── 01_affinity_computation.py              # Validation cohort: affinity scores from cell data
 ├── R/
+│   ├── 01_discovery_affinity_computation.R     # Discovery cohort: affinity scores from cell data
+│   ├── 01b_discovery_scores_from_distances.R   # Discovery cohort: published scores from stored distances
 │   ├── 02_Fig_S1_exploratory_density_vs_affinity.R
 │   ├── 02b_Fig1c_exploratory_hugging_fractions.R
 │   ├── 03_Fig1d_exploratory_ECDF_curves.R
@@ -19,26 +29,37 @@ This repository contains the scripts that generate all figures and tables report
 │   ├── 05_MSPI_integrated_analysis.R
 │   ├── 06_clinical_subtype_figures.R
 │   └── 07_Fig1a_patient_flow_and_tables.R
+├── LICENSE
 └── README.md
 ```
 
+All R scripts are run from the repository root. They read inputs from `./data/` and write results to `./output/`.
+
 ## Script descriptions and output mapping
 
-### 01 - Affinity computation (Python)
+### 01 - Discovery cohort affinity scores (R)
+
+**Script:** `R/01_discovery_affinity_computation.R`
+
+Computes the M1- and M2-to-T cell affinity scores of the discovery cohort from the per-cell table (cell coordinates and marker calls for CD4, CD8, CD68 and CD163). T cells are CD4+ or CD8+ cells; M1-like cells are CD68+CD163-, M2-like cells CD68+CD163+, and the macrophage pool also includes CD68-CD163+ myeloid cells. Writes the per-cell distances and the per-patient scores. The random pool subsamples use a fixed seed, so reruns give identical results. The published scores came from an earlier run without a fixed seed; script 01b reproduces them exactly.
+
+**Dependencies:** R, data.table, FNN
+
+### 01b - Discovery cohort published scores (R)
+
+**Script:** `R/01b_discovery_scores_from_distances.R`
+
+Recomputes the per-patient discovery scores from the stored per-cell distance files of the published run and compares them with the published score files when these are present.
+
+**Dependencies:** R, data.table
+
+### 01 - Validation cohort affinity scores (Python)
 
 **Script:** `python/01_affinity_computation.py`
 
-Computes the density-independent spatial affinity score for each tumor. For every T cell (anchor), the script measures:
-- 1-nearest-neighbor (1-NN) distance to the nearest macrophage subtype (M1 or M2)
-- 1-NN distance to a size-matched random subsample from the total macrophage pool (repeated 5 times, averaged)
+Computes the M1- and M2-to-T cell affinity scores of the validation cohort from the per-cell table (cell coordinates and binary marker calls for CD3, CD56, NKp46, CD68, CD163 and CK) and the tissue table (core areas and core-to-patient map). Random subsamples use a fixed seed (42).
 
-The ratio (subtype distance / reference distance) yields the affinity score. Values below 0.5 indicate that the subtype is closer to T cells than expected by chance.
-
-**Dependencies:** Python 3.8+, numpy, scipy (cKDTree), pandas, joblib
-
-**Input:** Cell coordinate files (x, y, phenotype) per tissue core/section
-
-**Output:** Per-patient affinity scores (M1-to-T cell and M2-to-T cell distance files for each cohort)
+**Dependencies:** Python 3.8+, numpy, scipy, pandas, joblib, threadpoolctl, tqdm
 
 ---
 
@@ -48,14 +69,12 @@ The ratio (subtype distance / reference distance) yields the affinity score. Val
 
 Demonstrates density dependence of contact fractions and density independence of the affinity metric in the exploratory cohort (n = 10 patients, 17 whole-tissue sections).
 
-**Outputs:**
-
 | Panel | Description |
 |-------|-------------|
-| **Suppl. Fig. S1a-d** | Contact fractions (T cells hugged by M1/M2) vs. cell densities - showing strong density dependence |
-| **Suppl. Fig. S1e-h** | Affinity scores vs. cell densities - showing density independence |
+| **Suppl. Fig. S1a-d** | Contact fractions (T cells hugged by M1/M2) vs. cell densities |
+| **Suppl. Fig. S1e-h** | Affinity scores vs. cell densities |
 
-**Dependencies:** R 4.0+, data.table, ggplot2, dplyr
+**Dependencies:** R, data.table, ggplot2, dplyr
 
 ---
 
@@ -63,18 +82,14 @@ Demonstrates density dependence of contact fractions and density independence of
 
 **Script:** `R/02b_Fig1c_exploratory_hugging_fractions.R`
 
-Computes macrophage-T cell spatial adjacency (contact) fractions in the exploratory cohort. Generates pie/bar charts showing the proportion of macrophages adjacent to T cells, stratified by M1 and M2 subtype, and the reciprocal (T cells adjacent to macrophages).
-
-**Outputs:**
+Computes macrophage-T cell contact fractions in the exploratory cohort: the proportion of M1 and M2 macrophages in contact with T cells, and the reciprocal proportion of T cells in contact with macrophages. The panels were assembled in Illustrator for the final figure.
 
 | Panel | Description |
 |-------|-------------|
 | **Fig. 1c left** | Proportion of M1 and M2 macrophages adjacent to CD3+ T cells |
 | **Fig. 1c right** | Proportion of CD3+ T cells adjacent to M1 and M2 macrophages |
 
-**Note:** This script was developed early in the project and reads from raw cell-level data files. The output panels were assembled manually in Illustrator for the final figure.
-
-**Dependencies:** R 4.0+, data.table, ggplot2, dplyr, tidyverse, FNN, reshape2
+**Dependencies:** R, data.table, ggplot2, dplyr, tidyverse, FNN, reshape2
 
 ---
 
@@ -82,16 +97,14 @@ Computes macrophage-T cell spatial adjacency (contact) fractions in the explorat
 
 **Script:** `R/03_Fig1d_exploratory_ECDF_curves.R`
 
-Generates empirical cumulative distribution function (ECDF) curves comparing nearest-neighbor distances from macrophage subtypes to T cells versus the random macrophage pool in the exploratory cohort.
-
-**Outputs:**
+Empirical cumulative distribution functions of nearest-neighbour distances from macrophage subtypes to T cells against the random macrophage pool (Kolmogorov-Smirnov test).
 
 | Panel | Description |
 |-------|-------------|
-| **Fig. 1d upper** | M2-to-T cell distances vs. random macrophage pool (KS test) |
-| **Fig. 1d lower** | M1-to-T cell distances vs. random macrophage pool (KS test) |
+| **Fig. 1d upper** | M2-to-T cell distances vs. random macrophage pool |
+| **Fig. 1d lower** | M1-to-T cell distances vs. random macrophage pool |
 
-**Dependencies:** R 4.0+, data.table, reshape2, dplyr, ggplot2
+**Dependencies:** R, data.table, reshape2, dplyr, ggplot2
 
 ---
 
@@ -99,41 +112,37 @@ Generates empirical cumulative distribution function (ECDF) curves comparing nea
 
 **Script:** `R/04_Fig1fg_discovery_KM_survival.R`
 
-Kaplan-Meier survival analysis for M1-to-T cell and M2-to-T cell affinity in the discovery cohort. Uses optimal cutpoints determined by maximally selected rank statistics with bootstrap validation. Analyses are restricted to the MSPI-available subset (patients with both M1 and M2 affinity scores).
-
-**Outputs:**
+Kaplan-Meier analysis of M1- and M2-to-T cell affinity in the discovery cohort, dichotomised at optimal cutpoints (maximally selected rank statistics with bootstrap validation), restricted to patients with both scores.
 
 | Panel | Description |
 |-------|-------------|
-| **Fig. 1f** | KM curves for M1-to-T cell affinity (optimal cutpoint), DDFS |
-| **Fig. 1g** | KM curves for M2-to-T cell affinity (optimal cutpoint), DDFS |
+| **Fig. 1f** | M1-to-T cell affinity, DDFS |
+| **Fig. 1g** | M2-to-T cell affinity, DDFS |
 
-**Dependencies:** R 4.0+, foreign, data.table, survival, survminer, ggpubr, tidyverse
+**Dependencies:** R, foreign, data.table, survival, survminer, ggpubr, tidyverse
 
 ---
 
-### 05 - MSPI integrated analysis (R) - main analysis script
+### 05 - MSPI integrated analysis (R), main analysis script
 
 **Script:** `R/05_MSPI_integrated_analysis.R`
 
-Core analysis script performing all MSPI-related computations across both cohorts. Score convention: distances are inverted (negated) so that higher values indicate higher affinity. MSPI = M2_score - M1_score (high = suppression dominant = adverse prognosis).
-
-**Outputs:**
+All MSPI computations across both cohorts.
 
 | Panel | Description |
 |-------|-------------|
-| **Fig. 1i** | M1 vs M2 interaction forest plot (Task 3: interaction analysis) |
-| **Fig. 2a** | MSPI scatter plot with qMSPI quadrants (Task 2: 4-quadrant analysis) |
-| **Fig. 2c** | C-index comparison across density and spatial metrics (Task 5) |
-| **Fig. 2f** | KM curves for early luminal with qMSPI quadrants (Task 1) |
-| **Fig. 2g** | KM curves for young early luminal with qMSPI quadrants (Task 1) |
-| **Fig. 3a** | Validation cohort MSPI forest by ER status (Task 1) |
-| **Fig. 3c** | Age-stratified MSPI HR + C-index in validation cohort (Task 1) |
-| **Fig. 3d** | Pooled IPD meta-analysis forest (Task 4) |
-| **Suppl. Fig. S2** | Discovery cohort density independence scatter plots (affinity vs. cell densities) |
-| Numerous CSV/XLSX tables | Univariable and multivariable Cox regression results |
+| **Fig. 1h** | Additive M1 + M2 Cox model and M1 x M2 interaction test |
+| **Fig. 2a** | MSPI scatter plot with qMSPI quadrants |
+| **Fig. 2c** | C-index comparison of density and spatial models |
+| **Fig. 2f** | Early luminal: qMSPI Kaplan-Meier curves, MSPI HRs, C-index |
+| **Fig. 2g** | Young early luminal: qMSPI Kaplan-Meier curves, MSPI HRs, C-index |
+| **Fig. 3a** | Validation cohort MSPI forest by ER status |
+| **Fig. 3c** | Validation cohort ER+ age-stratified MSPI HRs and C-index |
+| **Fig. 3d** | Pooled individual patient data analysis |
+| **Suppl. Fig. S2** | Discovery cohort affinity scores vs. cell densities |
+| CSV/XLSX tables | Univariable and multivariable Cox regression results |
 
-**Dependencies:** R 4.0+, foreign, data.table, dplyr, tidyr, ggplot2, ggpubr, survival, survminer, openxlsx, boot, gridExtra, scales, forcats, car, flextable, officer, survcomp (Bioconductor)
+**Dependencies:** R, foreign, data.table, dplyr, tidyr, ggplot2, ggpubr, survival, survminer, openxlsx, boot, gridExtra, scales, forcats, car, flextable, officer, survcomp (Bioconductor)
 
 ---
 
@@ -141,27 +150,25 @@ Core analysis script performing all MSPI-related computations across both cohort
 
 **Script:** `R/06_clinical_subtype_figures.R`
 
-Generates molecular subtype-specific analyses, clinical association tables, and supplementary materials for both cohorts.
-
-**Outputs:**
+Molecular subtype analyses, clinical associations and supplementary tables for both cohorts.
 
 | Panel | Description |
 |-------|-------------|
 | **Fig. 2b** | Cell density and MSPI boxplots by molecular subtype |
 | **Fig. 2d** | MSPI HR forest by molecular subtype |
-| **Fig. 2e** | Clinical multivariable Cox forest - luminal subgroup |
-| **Fig. 2h** | Clinical multivariable Cox forest - young early luminal |
-| **Suppl. S21** | Discovery cohort MSPI clinical association table (qMSPI quadrants) |
-| **Suppl. S22** | Discovery cohort MSPI subtype-specific forest data table |
-| **Suppl. S23** | Discovery cohort luminal clinical MV forest data table |
-| **Suppl. S24** | Discovery cohort early luminal mini forest and C-index table |
-| **Suppl. S25** | Discovery cohort young early luminal mini forest and C-index table |
-| **Suppl. S31** | Validation cohort MSPI clinical association table (qMSPI quadrants) |
-| **Suppl. S32** | Validation cohort MSPI forest data table |
-| **Suppl. S33** | Validation cohort ER+ age-stratified forest and C-index table |
-| **Suppl. S34** | Pooled IPD forest data table |
+| **Fig. 2e** | Clinical multivariable Cox forest, luminal subgroup |
+| **Fig. 2h** | Clinical multivariable Cox forest, young early luminal |
+| **Suppl. Table S4** | Discovery cohort: clinicopathological features by qMSPI quadrant |
+| **Suppl. Table S5** | Discovery cohort: MSPI HRs by molecular subtype |
+| **Suppl. Table S6** | Discovery cohort: clinical multivariable Cox, luminal |
+| **Suppl. Table S7** | Discovery cohort: early luminal HRs and C-index |
+| **Suppl. Table S8** | Discovery cohort: young early luminal HRs, C-index and clinical multivariable Cox |
+| **Suppl. Table S9** | Validation cohort: clinicopathological features by qMSPI quadrant |
+| **Suppl. Table S10** | Validation cohort: MSPI HRs by ER status |
+| **Suppl. Table S11** | Validation cohort: ER+ age-stratified HRs and C-index |
+| **Suppl. Table S12** | Pooled individual patient data analysis |
 
-**Dependencies:** R 4.0+, foreign, data.table, dplyr, tidyr, ggplot2, ggpubr, survival, survminer, rstatix, gtsummary, labelled, scales, forcats, gridExtra, flextable, officer, patchwork
+**Dependencies:** R, foreign, data.table, dplyr, tidyr, ggplot2, ggpubr, survival, survminer, scales, forcats, gridExtra, flextable, officer
 
 ---
 
@@ -169,18 +176,14 @@ Generates molecular subtype-specific analyses, clinical association tables, and 
 
 **Script:** `R/07_Fig1a_patient_flow_and_tables.R`
 
-Generates the CONSORT-style patient flow diagram and clinicopathological characterization tables for the MSPI-available subsets of both cohorts.
-
-**Outputs:**
-
 | Panel | Description |
 |-------|-------------|
-| **Fig. 1a** | Patient flow and cohort structure diagram |
-| **Suppl. S12** | Discovery cohort clinicopathological characteristics (MSPI-available subset) |
-| **Suppl. S13** | Validation cohort clinicopathological characteristics (all invasive, MSPI-available subset) |
+| **Fig. 1a** | Patient flow and cohort structure |
+| **Suppl. Table S2** | Discovery cohort clinicopathological characteristics |
+| **Suppl. Table S3** | Validation cohort clinicopathological characteristics (all invasive) |
 | Additional table | Validation cohort ER-positive clinicopathological characteristics |
 
-**Dependencies:** R 4.0+, grid, gridExtra, foreign, data.table, dplyr, openxlsx, flextable, officer
+**Dependencies:** R, grid, gridExtra, foreign, data.table, dplyr, openxlsx, flextable, officer
 
 ---
 
@@ -190,33 +193,30 @@ The clinical and spatial data used in this study are not publicly available due 
 
 ## Input data files (not included)
 
-The scripts expect the following input files. Paths are configurable at the top of each script.
+Place the files in the folders below. The scripts accept the original file names listed here; the alternative names used in earlier versions of this repository are also recognised.
 
-**Discovery cohort:**
-- Clinical data (SPSS .sav format)
-- M1-to-T cell affinity scores (tab-delimited text)
-- M2-to-T cell affinity scores (tab-delimited text)
-- Cell density data (tab-delimited text)
+**`data/discovery/`**
+- `BCY_workingr_832_updated_211024.sav` - clinical data (SPSS)
+- `BCY_distances_mean_M1_to_CD3.txt`, `BCY_distances_mean_M2_to_CD3.txt` - per-patient affinity scores
+- `BCY_immune_variables_with_CD3_for spatial.txt` - cell densities
+- `Merged_BIN_for_spatial.txt`, `Tissue_category_areas.txt` - per-cell table and core-to-patient map (script 01)
+- `nnALL_M1_to_CD3.txt`, `nnALL_M2_to_CD3.txt` - per-cell distances of the published run (script 01b)
 
-**Validation cohort:**
-- Clinical data (tab-delimited text)
-- M1 and M2 affinity scores (tab-delimited text)
-- Extended clinical variables (Excel .xlsx)
+**`data/validation/`**
+- `NK_BRCA_for_affinity.txt` - clinical data and cell densities
+- `BREAST_ENCIMA_affinity_CD3e_M1M2_myeloidpool_50um.txt` - per-patient affinity scores
+- `Huvuddatabas.xlsx` - extended clinical variables (script 07)
 
-**Exploratory cohort:**
-- M1-to-T cell nearest-neighbor distances (tab-delimited text)
-- M2-to-T cell nearest-neighbor distances (tab-delimited text)
-- Tissue area measurements (tab-delimited text)
-- Cell-level contact fraction data (tab-delimited text)
+**`data/exploratory/`**
+- `nnALL_M1_to_CD3_MMP285.txt`, `nnALL_M2_to_CD3_MMP285.txt` - per-cell distances
+- `ia_areas_11062025_images.tsv` - tissue areas
+- `hmf.tsv`, `cd3ki67.tsv` - cell-level contact data
 
 ## Execution order
 
-1. **`01_affinity_computation.py`** - Run first to compute affinity scores from raw cell coordinate data (produces input files for downstream R scripts)
-2. **`02` through `07`** - R scripts can be run in any order as they independently load required data files. The numbered prefixes reflect the order in which results appear in the manuscript, not execution dependencies.
+1. Affinity scores: `R/01_discovery_affinity_computation.R` (or `R/01b_discovery_scores_from_distances.R` for the published discovery scores) and `python/01_affinity_computation.py` for the validation cohort.
+2. `R/02` to `R/07`: each script loads its own inputs, so they can run in any order. The numbers follow the order of results in the manuscript.
 
 ## Software environment
 
-- **Python:** 3.8+ with numpy, scipy, pandas, joblib
-- **R:** 4.0+ with CRAN packages listed per script above
-- **Bioconductor:** survcomp (for C-index computation in script 05)
-- **System:** Scripts were developed on macOS. PDF output uses cairo_pdf with quartz fallback.
+Tested with R 4.5.1 (CRAN build for macOS arm64) and Python 3.11. PDF output uses cairo_pdf with a quartz fallback.

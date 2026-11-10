@@ -6,3 +6,4 @@ __pycache__/
 .RData
 .Rproj.user
 output/
+._*
