@@ -9,11 +9,9 @@
 ## ── Libraries ──────────────────────────────────────────────────────────────
 require(gdata)
 require(xlsx)
-library(made4)
 require(ggplot2)
 library(reshape)
 library(survival)
-library(rms)
 library(tidyverse)
 library(schoRsch)
 library(DescTools)
@@ -24,6 +22,16 @@ library(ggpubr)
 ## ── Paths ──────────────────────────────────────────────────────────────────
 ## Adjust these to point to your local discovery cohort data and output directories
 data_dir   <- "./data/discovery/"
+
+## Input files may carry the names used in this repository or their original names
+## (as shared on request); the first file found is used.
+find_input <- function(dir, ...) {
+  for (f in c(...)) {
+    p <- file.path(dir, f)
+    if (file.exists(p)) return(p)
+  }
+  stop("Cannot find any of: ", paste(c(...), collapse = ", "), " in ", dir)
+}
 output_dir <- "./output/"
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -84,23 +92,26 @@ save_km <- function(km, fname, w = 5.5, h = 6) {
 ## ── Load clinical data ─────────────────────────────────────────────────────
 ## Expected: SPSS file with clinical variables, endpoint data
 dat <- NULL
-disc_spss <- file.path(data_dir, "discovery_clinical.sav")
-if (!file.exists(disc_spss)) {
-  disc_spss <- file.path(data_dir, "discovery_clinical_updated.sav")
-}
+disc_spss <- find_input(data_dir, "discovery_clinical.sav", "discovery_clinical_updated.sav",
+                        "BCY_workingr_832_updated_211024.sav")
 dat <- read.spss(disc_spss,
                  use.value.labels = T, to.data.frame = T,
                  max.value.labels = Inf, trim.factor.names = T,
                  trim_values = TRUE, reencode = NA)
+## The original clinical file calls the subtype variable Subtype_BCY21
+if (!"Subtype_Discovery21" %in% names(dat) && "Subtype_BCY21" %in% names(dat)) {
+  names(dat)[names(dat) == "Subtype_BCY21"] <- "Subtype_Discovery21"
+}
 
 ## ── Load distance and density data ─────────────────────────────────────────
 ## Affinity scores and CD3 density computed from spatial analysis
-distance_M1 <- data.table::fread(file.path(data_dir, "discovery_distances_mean_M1_to_CD3.txt"),
+distance_M1 <- data.table::fread(find_input(data_dir, "discovery_distances_mean_M1_to_CD3.txt", "BCY_distances_mean_M1_to_CD3.txt"),
                                   sep = "\t", header = T, fill = T)
-distance_M2 <- data.table::fread(file.path(data_dir, "discovery_distances_mean_M2_to_CD3.txt"),
+distance_M2 <- data.table::fread(find_input(data_dir, "discovery_distances_mean_M2_to_CD3.txt", "BCY_distances_mean_M2_to_CD3.txt"),
                                   sep = "\t", header = T, fill = T)
 
-CD3_density_data <- data.table::fread(file.path(data_dir, "discovery_immune_variables_with_CD3.txt"),
+CD3_density_data <- data.table::fread(find_input(data_dir, "discovery_immune_variables_with_CD3.txt",
+                                                  "BCY_immune_variables_with_CD3_for spatial.txt"),
                                        sep = "\t", header = T, fill = T)
 CD3_density_data <- CD3_density_data[, c(1, 2)]
 
@@ -161,7 +172,7 @@ dat$status <- dat$EVENT_DR_or_BC_death
 dat$SurvObj <- with(dat, Surv(dat$DDFStime2021, status == "DDFScens2021"))
 
 ## ── Exclude unclassified ───────────────────────────────────────────────────
-dat <- dat[which(dat$Subtype_disc21 != "Unclassified"), ]
+dat <- dat[which(dat$Subtype_Discovery21 != "Unclassified"), ]
 
 ## ── Save intermediate table ────────────────────────────────────────────────
 write.table(dat, file = file.path(output_dir, "discovery_temp.txt"),

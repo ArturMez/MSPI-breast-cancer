@@ -4,26 +4,8 @@
 ## Loads raw proximity data, classifies cell types, and analyzes
 ## the proportion of cells hugging specific macrophage subtypes (M1, M2)
 
-require(gdata)
-require(xlsx)
-library(scales)
-library(ggplot2)
-library(reshape)
-library(plyr)
-library(robustbase)
 library(data.table)
-library(WriteXLS)
-library(tidyverse)
-library(readxl)
-require(reshape2)
-require(data.table)
 library(dplyr)
-library(raster)
-
-library(FNN)
-library(deldir)
-library(dplyr)
-library(plotrix)
 #options(digits=8)
 
 

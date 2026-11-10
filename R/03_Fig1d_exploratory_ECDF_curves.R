@@ -19,6 +19,16 @@ FONT_FAM <- "Helvetica"
 ## ── Paths ────────────────────────────────────────────────────────────────
 ## Adjust these to point to your local exploratory cohort data and output directories
 data_dir <- "./data/exploratory/"
+
+## Input files may carry the names used in this repository or their original names
+## (as shared on request); the first file found is used.
+find_input <- function(dir, ...) {
+  for (f in c(...)) {
+    p <- file.path(dir, f)
+    if (file.exists(p)) return(p)
+  }
+  stop("Cannot find any of: ", paste(c(...), collapse = ", "), " in ", dir)
+}
 out_dir  <- "./output/"
 
 ## ── Colour scheme ────────────────────────────────────────────────────────
@@ -61,7 +71,7 @@ for (run in runs) {
   cat("\n=== Processing", run$label, "===\n")
 
   ## ── 1. Read & cap at 50 um ─────────────────────────────────────────────
-  nn <- data.table::fread(file.path(data_dir, run$file),
+  nn <- data.table::fread(find_input(data_dir, run$file, sub("_exploratory", "_MMP285", run$file)),
                           sep = "\t", header = TRUE, fill = TRUE)
 
   nn$POS <- ifelse(nn$POS < 50, nn$POS, NA)

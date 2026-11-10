@@ -38,8 +38,18 @@
 base_dir   <- "./data"
 expl_dir   <- file.path(base_dir, "exploratory")
 
+## Input files may carry the names used in this repository or their original names
+## (as shared on request); the first file found is used.
+find_input <- function(dir, ...) {
+  for (f in c(...)) {
+    p <- file.path(dir, f)
+    if (file.exists(p)) return(p)
+  }
+  stop("Cannot find any of: ", paste(c(...), collapse = ", "), " in ", dir)
+}
+
 ## ia_areas: tissue area + cell counts for exploratory cohort
-areas_file <- file.path(expl_dir, "ia_areas_exploratory_images.tsv")
+areas_file <- find_input(expl_dir, "ia_areas_exploratory_images.tsv", "ia_areas_11062025_images.tsv")
 
 output_dir <- file.path(
   "./output",
@@ -162,8 +172,8 @@ cat("  Density range d_M2:",  round(range(dataTissue$d_M2,  na.rm = TRUE), 6), "
 
 ## --- 3b. NND distance files (for affinity scores) -----------------------
 
-nn_m1_file <- file.path(expl_dir, "nnALL_M1_to_CD3_exploratory.txt")
-nn_m2_file <- file.path(expl_dir, "nnALL_M2_to_CD3_exploratory.txt")
+nn_m1_file <- find_input(expl_dir, "nnALL_M1_to_CD3_exploratory.txt", "nnALL_M1_to_CD3_MMP285.txt")
+nn_m2_file <- find_input(expl_dir, "nnALL_M2_to_CD3_exploratory.txt", "nnALL_M2_to_CD3_MMP285.txt")
 stopifnot(file.exists(nn_m1_file), file.exists(nn_m2_file))
 
 nn_m1 <- data.table::fread(nn_m1_file, sep = "\t", header = TRUE, fill = TRUE)

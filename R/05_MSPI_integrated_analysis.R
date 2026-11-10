@@ -24,6 +24,16 @@ disc_base <- "./data/discovery"
 
 val_base <- "./data/validation"
 
+## Input files may carry the names used in this repository or their original names
+## (as shared on request); the first file found is used.
+find_input <- function(dir, ...) {
+  for (f in c(...)) {
+    p <- file.path(dir, f)
+    if (file.exists(p)) return(p)
+  }
+  stop("Cannot find any of: ", paste(c(...), collapse = ", "), " in ", dir)
+}
+
 output_dir <- file.path(
   "./output",
   paste0(output_date, "_Integrated_MSPI_Analysis")
@@ -155,7 +165,9 @@ cat("STEP 2: Loading Discovery cohort clinical data (SPSS)...\n")
 
 disc_spss_candidates <- c(
   file.path(disc_base, "Discovery_workingr_832_updated_211024.sav"),
-  file.path(disc_base, "Matching to clinical data", "Discovery_workingr_832_updated_211024.sav")
+  file.path(disc_base, "Matching to clinical data", "Discovery_workingr_832_updated_211024.sav"),
+  file.path(disc_base, "BCY_workingr_832_updated_211024.sav"),
+  file.path(disc_base, "Matching to clinical data", "BCY_workingr_832_updated_211024.sav")
 )
 
 disc_spss <- NA
@@ -178,6 +190,10 @@ disc_raw <- foreign::read.spss(
 )
 
 cat("  Clinical rows:", nrow(disc_raw), "\n")
+## The original clinical file calls the subtype variable Subtype_BCY21
+if (!"Subtype_Discovery21" %in% names(disc_raw) && "Subtype_BCY21" %in% names(disc_raw)) {
+  names(disc_raw)[names(disc_raw) == "Subtype_BCY21"] <- "Subtype_Discovery21"
+}
 
 disc_raw$status_num <- ifelse(
   as.character(disc_raw$DDFScens2021) == "Distant recurrence" |
@@ -201,11 +217,12 @@ cat("STEP 2: Discovery cohort clinical loaded\n\n", file = mlog, append = TRUE)
 
 cat("STEP 3: Loading Discovery cohort spatial distance and density files...\n")
 
-find_disc <- function(fname) {
+find_disc <- function(...) {
+  fnames <- c(...)
   candidates <- c(
-    file.path(disc_base, fname),
-    file.path(disc_base, "Discovery cohort", fname),
-    file.path(disc_base, "analysis", fname)
+    file.path(disc_base, fnames),
+    file.path(disc_base, "Discovery cohort", fnames),
+    file.path(disc_base, "analysis", fnames)
   )
   for (f in candidates) {
     if (file.exists(f)) {
@@ -213,12 +230,12 @@ find_disc <- function(fname) {
       return(f)
     }
   }
-  stop(paste("Cannot find:", fname))
+  stop(paste("Cannot find:", paste(fnames, collapse = " / ")))
 }
 
-m1_raw  <- data.table::fread(find_disc("Discovery_distances_mean_M1_to_CD3.txt"), data.table = FALSE)
-m2_raw  <- data.table::fread(find_disc("Discovery_distances_mean_M2_to_CD3.txt"), data.table = FALSE)
-cd3_raw <- data.table::fread(find_disc("Discovery_immune_variables_with_CD3_for spatial.txt"), data.table = FALSE)
+m1_raw  <- data.table::fread(find_disc("Discovery_distances_mean_M1_to_CD3.txt", "BCY_distances_mean_M1_to_CD3.txt"), data.table = FALSE)
+m2_raw  <- data.table::fread(find_disc("Discovery_distances_mean_M2_to_CD3.txt", "BCY_distances_mean_M2_to_CD3.txt"), data.table = FALSE)
+cd3_raw <- data.table::fread(find_disc("Discovery_immune_variables_with_CD3_for spatial.txt", "BCY_immune_variables_with_CD3_for spatial.txt"), data.table = FALSE)
 
 colnames(m1_raw)[colnames(m1_raw) == "delta_CD3"] <- "M1_to_CD3_distance"
 colnames(m2_raw)[colnames(m2_raw) == "delta_CD3"] <- "M2_to_CD3_distance"
@@ -388,7 +405,8 @@ cat("STEP 5: Loading Validation cohort clinical and affinity data...\n")
 
 val_clin <- data.table::fread(file.path(val_base, "NK_BRCA_for_affinity.txt"), data.table = FALSE)
 val_aff  <- data.table::fread(
-  file.path(val_base, "BREAST_validation_affinity_CD3e_M1M2_myeloidpool_50um.txt"),
+  find_input(val_base, "BREAST_validation_affinity_CD3e_M1M2_myeloidpool_50um.txt",
+             "BREAST_ENCIMA_affinity_CD3e_M1M2_myeloidpool_50um.txt"),
   data.table = FALSE
 )
 val <- dplyr::left_join(val_clin, val_aff, by = "Case")
@@ -401,7 +419,8 @@ val$status_rfs <- ifelse(val$RFS.event == "Yes", 1L, 0L)
 val$OS_months  <- suppressWarnings(as.numeric(val$Time_Diagnosis_Last_followup..OS.)) / 30.4375
 val$status_os  <- ifelse(val$Event_last_followup == "Dead", 1L, 0L)
 
-cd3_col <- grep("^.D3$", names(val), value = TRUE)[1]
+## The validation CD3 density column is named with a Cyrillic "С" ("СD3"); match on the ending so this works in any locale
+cd3_col <- grep("D3$", names(val), value = TRUE)[1]
 val$CD3_density <- val[[cd3_col]]
 cat("  CD3 density column identified as:", cd3_col, "\n")
 
@@ -2101,7 +2120,7 @@ pool_A <- rbind(pool_early, pool_enc)
 pool_A$Cohort <- factor(pool_A$Cohort)
 
 pool_val_young <- prep_pool(val_young, "OS_months", "status_os", "Validation cohort_ER_pos_Young")
-pool_B <- rbind(pool_young, pool_val_val_young)
+pool_B <- rbind(pool_young, pool_val_young)
 pool_B$Cohort <- factor(pool_B$Cohort)
 
 t4_A <- run_task4(pool_A, "Pool A: Discovery Early Luminal + Validation cohort ER+", "Pool_A")
