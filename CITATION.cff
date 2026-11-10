@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the article and the archived software version."
+title: "MSPI-breast-cancer: Macrophage Spatial Polarity Index analysis code"
+type: software
+authors:
+  - family-names: Mezheyeuski
+    given-names: Artur
+    orcid: "https://orcid.org/0000-0002-4394-2634"
+    affiliation: "Vall d'Hebron Institute of Oncology (VHIO), Barcelona, Spain"
+version: 1.1.0
+date-released: 2026-11-10
+doi: 10.5281/zenodo.20392440
+license: MIT
+repository-code: "https://github.com/ArturMez/MSPI-breast-cancer"
+keywords:
+  - breast cancer
+  - spatial analysis
+  - multiplex immunohistochemistry
+  - tumour-associated macrophages
