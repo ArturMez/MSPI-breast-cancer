@@ -641,18 +641,25 @@ if (n_sz_miss > 0) {
     data.frame(Characteristics = "Size missing/multifocal", Value = fmt_n(n_sz_miss, N_val_inv)))
 }
 
-## Surgery type (from Huvuddatabas TREAT: 1=mastectomy, 2=sector, 4=no surgery)
+## Surgery type (from Huvuddatabas TREAT: 1=mastectomy, 2=sector, 4=no surgery).
+## NOTE - a small number of records carry an undocumented value (or NA) for
+## surgery_type. They were previously dropped silently, so Mastectomy +
+## Breast-conserving did not sum to N. They are now reported under
+## "Unknown/other" so the column adds up to N.
 val_rows <- rbind(val_rows, data.frame(Characteristics = "Surgery", Value = ""))
 tr <- val_inv$surgery_type
-n_mast <- sum(tr == "mastectomy", na.rm = TRUE)
-n_sect <- sum(tr == "breast_conserving", na.rm = TRUE)
+n_mast   <- sum(tr == "mastectomy", na.rm = TRUE)
+n_sect   <- sum(tr == "breast_conserving", na.rm = TRUE)
 n_nosurg <- sum(tr == "none", na.rm = TRUE)
+n_other  <- sum(is.na(tr) | !(tr %in% c("mastectomy", "breast_conserving", "none")))
 if (n_mast > 0) val_rows <- rbind(val_rows,
   data.frame(Characteristics = "Mastectomy", Value = fmt_n(n_mast, N_val_inv)))
 if (n_sect > 0) val_rows <- rbind(val_rows,
   data.frame(Characteristics = "Breast-conserving", Value = fmt_n(n_sect, N_val_inv)))
 if (n_nosurg > 0) val_rows <- rbind(val_rows,
   data.frame(Characteristics = "No surgery", Value = fmt_n(n_nosurg, N_val_inv)))
+if (n_other > 0) val_rows <- rbind(val_rows,
+  data.frame(Characteristics = "Unknown/other", Value = fmt_n(n_other, N_val_inv)))
 
 ## Radiotherapy (from Huvuddatabas RT: 1=yes, 2=no)
 val_rows <- rbind(val_rows, data.frame(Characteristics = "Radiotherapy", Value = ""))
@@ -782,15 +789,21 @@ val_erp_rows <- rbind(val_erp_rows,
 if (n_sz_miss > 0) val_erp_rows <- rbind(val_erp_rows,
   data.frame(Characteristics = "Size missing/multifocal", Value = fmt_n(n_sz_miss, N_val_erp)))
 
-## Surgery
+## Surgery (surgery_type: mastectomy / breast_conserving / none; anything else -> Unknown/other)
 val_erp_rows <- rbind(val_erp_rows, data.frame(Characteristics = "Surgery", Value = ""))
 tr <- val_erp$surgery_type
-n_mast <- sum(tr == "mastectomy", na.rm = TRUE)
-n_sect <- sum(tr == "breast_conserving", na.rm = TRUE)
+n_mast   <- sum(tr == "mastectomy", na.rm = TRUE)
+n_sect   <- sum(tr == "breast_conserving", na.rm = TRUE)
+n_nosurg <- sum(tr == "none", na.rm = TRUE)
+n_other  <- sum(is.na(tr) | !(tr %in% c("mastectomy", "breast_conserving", "none")))
 if (n_mast > 0) val_erp_rows <- rbind(val_erp_rows,
   data.frame(Characteristics = "Mastectomy", Value = fmt_n(n_mast, N_val_erp)))
 if (n_sect > 0) val_erp_rows <- rbind(val_erp_rows,
   data.frame(Characteristics = "Breast-conserving", Value = fmt_n(n_sect, N_val_erp)))
+if (n_nosurg > 0) val_erp_rows <- rbind(val_erp_rows,
+  data.frame(Characteristics = "No surgery", Value = fmt_n(n_nosurg, N_val_erp)))
+if (n_other > 0) val_erp_rows <- rbind(val_erp_rows,
+  data.frame(Characteristics = "Unknown/other", Value = fmt_n(n_other, N_val_erp)))
 
 ## Radiotherapy
 val_erp_rows <- rbind(val_erp_rows, data.frame(Characteristics = "Radiotherapy", Value = ""))
