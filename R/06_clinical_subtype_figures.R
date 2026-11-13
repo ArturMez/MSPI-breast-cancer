@@ -1,5 +1,11 @@
 ################################################################################
 ##
+## Version 2 (nucleus-supported T cells): reads the discovery affinity scores and T-cell density of
+## python/01_discovery_affinity_nucleus.py and R/01c_discovery_T_cell_density_nucleus.R
+## (discovery_distances_mean_M1/M2_to_CD3_nucleus.txt, discovery_immune_variables_with_CD3_nucleus.txt in
+## ./data/discovery/). The input names of version 1 are not accepted, so its inputs cannot be used by mistake.
+## Everything else is unchanged from version 1.
+##
 ##  Discovery and Validation Cohort MSPI — SUBTYPE FOREST PLOTS, BOXPLOTS & CLINICAL ASSOCIATIONS
 ##  VERSION 2
 ##
@@ -140,9 +146,9 @@ find_file <- function(...) {
   stop(paste("Cannot find:", paste(fnames, collapse = " / ")))
 }
 
-m1_raw  <- data.table::fread(find_file("discovery_distances_mean_M1_to_CD3.txt", "BCY_distances_mean_M1_to_CD3.txt"), data.table = FALSE)
-m2_raw  <- data.table::fread(find_file("discovery_distances_mean_M2_to_CD3.txt", "BCY_distances_mean_M2_to_CD3.txt"), data.table = FALSE)
-cd3_raw <- data.table::fread(find_file("discovery_immune_variables_with_CD3_for spatial.txt", "BCY_immune_variables_with_CD3_for spatial.txt"),
+m1_raw  <- data.table::fread(find_file("discovery_distances_mean_M1_to_CD3_nucleus.txt"), data.table = FALSE)
+m2_raw  <- data.table::fread(find_file("discovery_distances_mean_M2_to_CD3_nucleus.txt"), data.table = FALSE)
+cd3_raw <- data.table::fread(find_file("discovery_immune_variables_with_CD3_nucleus.txt"),
                               data.table = FALSE)
 
 colnames(m1_raw)[colnames(m1_raw) == "delta_CD3"] <- "M1_to_CD3_distance"

@@ -1,23 +1,26 @@
 ########################
-## Figure 1a (patient flow) and Supplementary Tables S2-S3 (clinicopathological characteristics)
+## Supplementary Tables S2-S3 (clinicopathological characteristics of the MSPI analysis sets)
 ##
 ## Run from the repository root. Inputs (original names; the repository names in brackets also work):
 ##   ./data/discovery/   BCY_workingr_832_updated_211024.sav [cohort_clinical.sav, clinical_data.sav]
-##                       BCY_distances_mean_M1_to_CD3.txt, BCY_distances_mean_M2_to_CD3.txt
-##                       [M1_to_CD3_distances.txt, M2_to_CD3_distances.txt]
+##                       discovery_distances_mean_M1_to_CD3_nucleus.txt, discovery_distances_mean_M2_to_CD3_nucleus.txt
 ##   ./data/validation/  NK_BRCA_for_affinity.txt [clinical.txt]
 ##                       BREAST_ENCIMA_affinity_CD3e_M1M2_myeloidpool_50um.txt [affinity_scores.txt]
 ##                       Huvuddatabas.xlsx [clinical_extra.xlsx]
-## Outputs: ./output/fig1a_and_tables/
+## Outputs: ./output/tables_S2_S3/ (the discovery numbers of Figure 1a are drawn by script 10)
 ## In the code, bcy_* objects hold the discovery cohort and enc_* objects the validation cohort.
+##
+## Version 2 (nucleus-supported T cells): reads the discovery affinity scores of
+## python/01_discovery_affinity_nucleus.py
+## (discovery_distances_mean_M1/M2_to_CD3_nucleus.txt in
+## ./data/discovery/). The input names of version 1 are not accepted, so its inputs cannot be used by mistake.
+## Everything else is unchanged from version 1.
 ########################
 
-library(grid)
-library(gridExtra)
 
 ## ── Paths ──────────────────────────────────────────────────────────────────
 proj_root  <- "./data"
-output_dir <- "./output/fig1a_and_tables"
+output_dir <- "./output/tables_S2_S3"
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 cat("Data dir:", proj_root, "\n")
 cat("Output dir:", output_dir, "\n")
@@ -32,281 +35,14 @@ find_input <- function(dir, ...) {
   stop("Cannot find any of: ", paste(c(...), collapse = ", "), " in ", dir)
 }
 
-## ── Quartz/cairo fallback ──────────────────────────────────────────────────
-FONT_FAM <- "Arial"
-USE_QUARTZ <- FALSE
-if (.Platform$OS.type != "windows") {
-  USE_QUARTZ <- tryCatch({
-    tf <- tempfile(fileext = ".pdf")
-    cairo_pdf(tf, width = 1, height = 1)
-    plot.new()
-    dev.off()
-    unlink(tf)
-    FALSE  # cairo works
-  }, warning = function(w) TRUE, error = function(e) TRUE)
-}
-
-save_pdf <- function(fpath, w, h) {
-  ## Ensure parent directory exists
-  dir.create(dirname(fpath), recursive = TRUE, showWarnings = FALSE)
-  if (USE_QUARTZ) {
-    quartz(type = "pdf", file = fpath, width = w, height = h,
-           family = FONT_FAM, bg = "white")
-  } else {
-    tryCatch(
-      cairo_pdf(fpath, width = w, height = h, bg = "white"),
-      error = function(e) {
-        message("cairo_pdf failed, falling back to quartz: ", e$message)
-        quartz(type = "pdf", file = fpath, width = w, height = h,
-               family = FONT_FAM, bg = "white")
-      }
-    )
-  }
-}
-
-## ── Colour palette ─────────────────────────────────────────────────────────
-COL_DISC   <- "#7ba3c4"   # Discovery cohort (blue)
-COL_VAL    <- "#c47a7a"   # Validation cohort (red-ish)
-COL_EXPL   <- "#a0a0a0"   # Exploratory cohort (grey)
-COL_POOL   <- "#d4b86a"   # Pooled IPD (amber)
-COL_BOX    <- "#f5f5f0"   # Light fill for boxes
-COL_DISC_L <- "#e8f0f7"   # Light fill for discovery boxes
-COL_VAL_L  <- "#fae8e8"   # Light fill for validation boxes
-COL_POOL_L <- "#faf3e0"   # Light fill for pooled box
-
-## ── Helper: draw a rounded box with text ───────────────────────────────────
-draw_box <- function(x, y, w, h, labels, fill = COL_BOX, border = "grey40",
-                     cex = 0.65, font = 1, line_spacing = 1.15) {
-  grid.roundrect(
-    x = unit(x, "npc"), y = unit(y, "npc"),
-    width = unit(w, "npc"), height = unit(h, "npc"),
-    r = unit(0.008, "npc"),
-    gp = gpar(fill = fill, col = border, lwd = 1.2)
-  )
-  n <- length(labels)
-  for (i in seq_along(labels)) {
-    lbl <- labels[[i]]
-    f <- if (is.list(lbl)) lbl$font else font
-    cx <- if (is.list(lbl)) lbl$cex else cex
-    txt <- if (is.list(lbl)) lbl$text else lbl
-    yoff <- y + h * 0.5 * (1 - (2 * i - 1) / n) * 0.85
-    grid.text(txt, x = unit(x, "npc"), y = unit(yoff, "npc"),
-              gp = gpar(fontsize = cx * 12, fontfamily = FONT_FAM, fontface = f))
-  }
-}
-
-## ── Helper: draw an arrow ──────────────────────────────────────────────────
-draw_arrow <- function(x0, y0, x1, y1, col = "grey40") {
-  grid.lines(x = unit(c(x0, x1), "npc"), y = unit(c(y0, y1), "npc"),
-             arrow = arrow(length = unit(0.012, "npc"), type = "closed"),
-             gp = gpar(col = col, fill = col, lwd = 1.2))
-}
-
-draw_line <- function(x0, y0, x1, y1, col = "grey40", lty = 1) {
-  grid.lines(x = unit(c(x0, x1), "npc"), y = unit(c(y0, y1), "npc"),
-             gp = gpar(col = col, lwd = 1.2, lty = lty))
-}
-
-
 ## ════════════════════════════════════════════════════════════════════════════
-## DRAW THE FIGURE
-## ════════════════════════════════════════════════════════════════════════════
-
-fpath <- file.path(output_dir, "Fig1a_patient_flow.pdf")
-save_pdf(fpath, w = 12, h = 8)
-grid.newpage()
-
-## Background
-grid.rect(gp = gpar(fill = "white", col = NA))
-
-## ── Column headers ─────────────────────────────────────────────────────────
-grid.text("DISCOVERY COHORT", x = 0.25, y = 0.96,
-          gp = gpar(fontsize = 14, fontface = "bold", fontfamily = FONT_FAM, col = "#4a6e91"))
-grid.text("VALIDATION COHORT", x = 0.75, y = 0.96,
-          gp = gpar(fontsize = 14, fontface = "bold", fontfamily = FONT_FAM, col = "#91504a"))
-
-## ── Exploratory cohort (top bar) ───────────────────────────────────────────
-draw_box(0.50, 0.935, 0.55, 0.025,
-         list(list(text = "EXPLORATORY COHORT  n = 10 patients (17 whole-tissue sections)", font = "bold", cex = 0.6)),
-         fill = "#e8e8e8", border = COL_EXPL)
-
-## ══════════════════════════════════════════════════════════════════════════
-## DISCOVERY SIDE (left)
-## ══════════════════════════════════════════════════════════════════════════
-
-## Registry box
-draw_box(0.25, 0.87, 0.38, 0.055,
-         list(list(text = "Swedish population-based registry", font = "bold", cex = 0.65),
-              list(text = "Women diagnosed 1992-2005", font = 1, cex = 0.55),
-              list(text = "Age-stratified sampling (enriched <40 y)", font = 1, cex = 0.55)),
-         fill = COL_DISC_L, border = COL_DISC)
-
-draw_arrow(0.25, 0.843, 0.25, 0.82)
-
-## MSPI available (both M1 and M2 affinity scores + valid DDFS)
-draw_box(0.25, 0.795, 0.38, 0.04,
-         list(list(text = "MSPI available", font = "bold", cex = 0.6),
-              list(text = "n = 687, 189 DDFS events", font = 1, cex = 0.55)),
-         fill = COL_DISC_L, border = COL_DISC)
-
-## Arrows to molecular subtypes
-draw_line(0.25, 0.775, 0.25, 0.685)  # vertical
-draw_line(0.10, 0.685, 0.40, 0.685)  # horizontal
-draw_arrow(0.10, 0.685, 0.10, 0.665)
-draw_arrow(0.25, 0.685, 0.25, 0.665)
-draw_arrow(0.40, 0.685, 0.40, 0.665)
-
-## Molecular subtypes
-draw_box(0.10, 0.64, 0.15, 0.04,
-         list(list(text = "Luminal A+B", font = "bold", cex = 0.55),
-              list(text = "n = 415, 103 events", font = 1, cex = 0.50)),
-         fill = COL_DISC_L, border = COL_DISC)
-
-draw_box(0.25, 0.64, 0.12, 0.04,
-         list(list(text = "HER2+", font = "bold", cex = 0.55),
-              list(text = "n = 114, 36 events", font = 1, cex = 0.50)),
-         fill = COL_DISC_L, border = COL_DISC)
-
-draw_box(0.40, 0.64, 0.14, 0.04,
-         list(list(text = "Triple-negative", font = "bold", cex = 0.55),
-              list(text = "n = 158, 50 events", font = 1, cex = 0.50)),
-         fill = COL_DISC_L, border = COL_DISC)
-
-## Arrows from Luminal to subgroups
-draw_line(0.10, 0.62, 0.10, 0.60)
-draw_line(0.10, 0.60, 0.20, 0.60)
-draw_arrow(0.10, 0.60, 0.10, 0.58)
-draw_arrow(0.20, 0.60, 0.20, 0.58)
-
-## Early-stage luminal
-draw_box(0.10, 0.55, 0.16, 0.045,
-         list(list(text = "Early-stage luminal", font = "bold", cex = 0.55),
-              list(text = "Stage I-IIb", font = "italic", cex = 0.50),
-              list(text = "n = 360, 77 events", font = 1, cex = 0.50)),
-         fill = COL_DISC_L, border = COL_DISC)
-
-## Young luminal
-draw_box(0.235, 0.55, 0.14, 0.045,
-         list(list(text = "Young luminal", font = "bold", cex = 0.55),
-              list(text = "Age <40", font = "italic", cex = 0.50),
-              list(text = "n = 152, 51 events", font = 1, cex = 0.50)),
-         fill = COL_DISC_L, border = COL_DISC)
-
-## Endpoint box
-draw_box(0.17, 0.48, 0.28, 0.03,
-         list(list(text = "Endpoint: DDFS (distant disease-free survival)", font = "bold.italic", cex = 0.55)),
-         fill = "#dbe8f4", border = COL_DISC)
-
-
-## ══════════════════════════════════════════════════════════════════════════
-## VALIDATION SIDE (right)
-## ══════════════════════════════════════════════════════════════════════════
-
-## Registry box
-draw_box(0.75, 0.87, 0.38, 0.055,
-         list(list(text = "Uppsala / Vasteras population-based", font = "bold", cex = 0.65),
-              list(text = "Women diagnosed 1985-2004", font = 1, cex = 0.55),
-              list(text = "TMA collection, Opal multiplex IF", font = 1, cex = 0.55)),
-         fill = COL_VAL_L, border = COL_VAL)
-
-draw_arrow(0.75, 0.843, 0.75, 0.82)
-
-## Full cohort MSPI available
-draw_box(0.75, 0.795, 0.38, 0.04,
-         list(list(text = "Full cohort, MSPI available", font = "bold", cex = 0.6),
-              list(text = "n = 305, 132 OS events", font = 1, cex = 0.55)),
-         fill = COL_VAL_L, border = COL_VAL)
-
-## Arrows to ER subgroups
-draw_line(0.75, 0.775, 0.75, 0.755)
-draw_line(0.65, 0.755, 0.85, 0.755)
-draw_arrow(0.65, 0.755, 0.65, 0.735)
-draw_arrow(0.85, 0.755, 0.85, 0.735)
-
-## ER-positive
-draw_box(0.65, 0.71, 0.18, 0.04,
-         list(list(text = "ER-positive", font = "bold", cex = 0.55),
-              list(text = "n = 247, 105 OS events", font = 1, cex = 0.50)),
-         fill = COL_VAL_L, border = COL_VAL)
-
-## ER-negative
-draw_box(0.85, 0.71, 0.18, 0.04,
-         list(list(text = "ER-negative", font = "bold", cex = 0.55),
-              list(text = "n = 58, 27 OS events", font = 1, cex = 0.50)),
-         fill = COL_VAL_L, border = COL_VAL)
-
-## Arrow to ER+ N0
-draw_arrow(0.65, 0.69, 0.65, 0.665)
-
-## ER+ N0
-draw_box(0.65, 0.64, 0.21, 0.04,
-         list(list(text = "ER+ node-negative (N0)", font = "bold", cex = 0.55),
-              list(text = "n = 206, 89 OS events", font = 1, cex = 0.50)),
-         fill = COL_VAL_L, border = COL_VAL)
-
-## Arrows to age subgroups
-draw_line(0.65, 0.62, 0.65, 0.605)
-draw_line(0.555, 0.605, 0.745, 0.605)
-draw_arrow(0.555, 0.605, 0.555, 0.585)
-draw_arrow(0.65, 0.605, 0.65, 0.585)
-draw_arrow(0.745, 0.605, 0.745, 0.585)
-
-## Age <=50
-draw_box(0.555, 0.555, 0.13, 0.045,
-         list(list(text = "Age <=50 y", font = "bold", cex = 0.50),
-              list(text = "n = 43", font = 1, cex = 0.48),
-              list(text = "11 OS events", font = 1, cex = 0.48)),
-         fill = COL_VAL_L, border = COL_VAL)
-
-## Age 51-64
-draw_box(0.65, 0.555, 0.13, 0.045,
-         list(list(text = "Age 51-64 y", font = "bold", cex = 0.50),
-              list(text = "n = 76", font = 1, cex = 0.48),
-              list(text = "19 OS events", font = 1, cex = 0.48)),
-         fill = COL_VAL_L, border = COL_VAL)
-
-## Age >=65
-draw_box(0.745, 0.555, 0.13, 0.045,
-         list(list(text = "Age >=65 y", font = "bold", cex = 0.50),
-              list(text = "n = 87", font = 1, cex = 0.48),
-              list(text = "59 OS events", font = 1, cex = 0.48)),
-         fill = COL_VAL_L, border = COL_VAL)
-
-## Endpoint box
-draw_box(0.75, 0.48, 0.28, 0.03,
-         list(list(text = "Endpoint: OS (overall survival)", font = "bold.italic", cex = 0.55)),
-         fill = "#fae0e0", border = COL_VAL)
-
-
-## ══════════════════════════════════════════════════════════════════════════
-## POOLED IPD (bottom)
-## ══════════════════════════════════════════════════════════════════════════
-
-## Connecting arrows from Discovery and Validation to pooled box
-draw_line(0.17, 0.465, 0.17, 0.42, lty = 2)
-draw_line(0.75, 0.465, 0.75, 0.42, lty = 2)
-draw_line(0.17, 0.42, 0.75, 0.42, lty = 2)
-draw_arrow(0.46, 0.42, 0.46, 0.40)
-
-## Pooled IPD box
-draw_box(0.50, 0.355, 0.70, 0.07,
-         list(list(text = "Pooled Individual Patient Data Meta-analysis", font = "bold", cex = 0.7),
-              list(text = "Stratified Cox regression, within-cohort standardization of MSPI", font = "italic", cex = 0.55),
-              list(text = "Discovery young luminal + Validation ER+ young N0 (n = 195, 62 events)", font = 1, cex = 0.55)),
-         fill = COL_POOL_L, border = COL_POOL)
-
-dev.off()
-cat("Saved:", fpath, "\n")
-
-
-## ════════════════════════════════════════════════════════════════════════════
-## PART 2 — CLINICOPATHOLOGICAL TABLES FOR MSPI-AVAILABLE SUBSETS
+## CLINICOPATHOLOGICAL TABLES FOR MSPI-AVAILABLE SUBSETS
 ## Produces .docx tables (styled via flextable + officer)
 ## for BCY (discovery) and ENCIMA (validation)
 ## ════════════════════════════════════════════════════════════════════════════
 
 cat("\n═══════════════════════════════════════════════\n")
-cat("PART 2: Clinicopathological Tables\n")
+cat("Clinicopathological Tables\n")
 cat("═══════════════════════════════════════════════\n\n")
 
 ## ── Libraries for data loading and table generation ────────────────────────
@@ -393,9 +129,9 @@ bcy_raw <- foreign::read.spss(
 )
 
 ## Load affinity distances
-m1_raw <- data.table::fread(find_input(bcy_base, "BCY_distances_mean_M1_to_CD3.txt", "M1_to_CD3_distances.txt"),
+m1_raw <- data.table::fread(find_input(bcy_base, "discovery_distances_mean_M1_to_CD3_nucleus.txt"),
                             data.table = FALSE)
-m2_raw <- data.table::fread(find_input(bcy_base, "BCY_distances_mean_M2_to_CD3.txt", "M2_to_CD3_distances.txt"),
+m2_raw <- data.table::fread(find_input(bcy_base, "discovery_distances_mean_M2_to_CD3_nucleus.txt"),
                             data.table = FALSE)
 colnames(m1_raw)[colnames(m1_raw) == "delta_CD3"] <- "M1_to_CD3_distance"
 colnames(m2_raw)[colnames(m2_raw) == "delta_CD3"] <- "M2_to_CD3_distance"

@@ -4,6 +4,12 @@
 ## Performs survival analysis of M1 and M2 macrophage-to-T cell affinity
 ## in the discovery cohort using optimal cutpoints and KM estimation.
 ## Generates publication-quality forest plots with risk tables.
+##
+## Version 2 (nucleus-supported T cells): reads the discovery affinity scores and T-cell density of
+## python/01_discovery_affinity_nucleus.py and R/01c_discovery_T_cell_density_nucleus.R
+## (discovery_distances_mean_M1/M2_to_CD3_nucleus.txt, discovery_immune_variables_with_CD3_nucleus.txt in
+## ./data/discovery/). The input names of version 1 are not accepted, so its inputs cannot be used by mistake.
+## Everything else is unchanged from version 1.
 ########################
 
 ## ── Libraries ──────────────────────────────────────────────────────────────
@@ -105,13 +111,12 @@ if (!"Subtype_Discovery21" %in% names(dat) && "Subtype_BCY21" %in% names(dat)) {
 
 ## ── Load distance and density data ─────────────────────────────────────────
 ## Affinity scores and CD3 density computed from spatial analysis
-distance_M1 <- data.table::fread(find_input(data_dir, "discovery_distances_mean_M1_to_CD3.txt", "BCY_distances_mean_M1_to_CD3.txt"),
+distance_M1 <- data.table::fread(find_input(data_dir, "discovery_distances_mean_M1_to_CD3_nucleus.txt"),
                                   sep = "\t", header = T, fill = T)
-distance_M2 <- data.table::fread(find_input(data_dir, "discovery_distances_mean_M2_to_CD3.txt", "BCY_distances_mean_M2_to_CD3.txt"),
+distance_M2 <- data.table::fread(find_input(data_dir, "discovery_distances_mean_M2_to_CD3_nucleus.txt"),
                                   sep = "\t", header = T, fill = T)
 
-CD3_density_data <- data.table::fread(find_input(data_dir, "discovery_immune_variables_with_CD3.txt",
-                                                  "BCY_immune_variables_with_CD3_for spatial.txt"),
+CD3_density_data <- data.table::fread(find_input(data_dir, "discovery_immune_variables_with_CD3_nucleus.txt"),
                                        sep = "\t", header = T, fill = T)
 CD3_density_data <- CD3_density_data[, c(1, 2)]
 
