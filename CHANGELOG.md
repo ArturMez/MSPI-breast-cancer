@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.1
+
+- Analysis code only. The figure pages of the manuscript were composed from the outputs of these scripts by separate
+  layout scripts, which are no longer part of the repository: `R/08_Fig2_draw.R`, `R/10_Fig1_draw.R`,
+  `R/11_Fig3d_draw.R`, `python/09_Fig2_compose.py`, `python/12_Fig1_Fig3_compose.py` and the page templates in
+  `assets/` are removed. They remain available in version 2.0.0.
+- The statistics that the removed Figure 1 and 2 scripts computed themselves are kept, with the same code, in two new
+  scripts: `R/08_Fig2_statistics.R` (qMSPI medians and quadrant counts, densities and MSPI by subtype with Dunn's
+  tests, Kaplan-Meier curves by MSPI quartile with the 4th vs 1st log-rank p, Type II Anova shares of the
+  density-adjusted Cox model, with plain plots of these panels) and `R/10_Fig1a_patient_numbers.R` (the discovery
+  patient numbers of Figure 1a). Results, figure panels and tables are unchanged.
+
 ## 2.0.0 (revised manuscript)
 
 - Discovery cohort T cells: CD8+ cells and CD4+ cells with a lymphocyte-like nucleus, instead of all CD4+ or CD8+

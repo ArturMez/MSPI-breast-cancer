@@ -2,11 +2,11 @@
 
 Analysis code for the manuscript *Macrophage spatial polarity to T cells predicts prognosis in young women with luminal breast cancer*.
 
-Version 2.0.0 accompanies the revised manuscript. In the discovery cohort, T cells are now CD8+ cells and CD4+ cells with a lymphocyte-like nucleus (see below and `CHANGELOG.md`). Version 1.1.0 holds the code of the original submission.
+Version 2.0.1 accompanies the revised manuscript. Since version 2.0.0, T cells in the discovery cohort are CD8+ cells and CD4+ cells with a lymphocyte-like nucleus (see below and `CHANGELOG.md`). Version 1.1.0 holds the code of the original submission.
 
 ## Overview
 
-This repository contains the scripts that compute the spatial affinity scores and generate the figures and tables reported in the manuscript. The analysis quantifies a density-independent spatial affinity metric between macrophage subtypes (M1-like, M2-like) and T cells in multiplex immunohistochemistry (mIHC) breast cancer tissue, and evaluates its prognostic value as the Macrophage Spatial Polarity Index (MSPI).
+This repository contains the analysis code: the scripts that compute the spatial affinity scores and all results, figure panels and tables reported in the manuscript. The figure pages (Figures 1-3) were composed from these outputs by separate layout scripts, which are not part of this repository (see Figure pages below). The analysis quantifies a density-independent spatial affinity metric between macrophage subtypes (M1-like, M2-like) and T cells in multiplex immunohistochemistry (mIHC) breast cancer tissue, and evaluates its prognostic value as the Macrophage Spatial Polarity Index (MSPI).
 
 ## The affinity score
 
@@ -25,9 +25,7 @@ The discovery cohort was stained for CD4, CD8, CD68 and CD163 without CD3. Becau
 ```
 ├── python/
 │   ├── 01_discovery_affinity_nucleus.py       # Discovery cohort: affinity scores
-│   ├── 01_affinity_computation.py             # Validation cohort: affinity scores
-│   ├── 09_Fig2_compose.py                     # Figure 2: data panels onto the figure page
-│   └── 12_Fig1_Fig3_compose.py                # Figures 1 and 3: data panels onto the figure pages
+│   └── 01_affinity_computation.py             # Validation cohort: affinity scores
 ├── R/
 │   ├── 00a_discovery_nucleus_features.R       # Discovery cohort: nucleus measures for every cell
 │   ├── 00b_discovery_nucleus_classifier.R     # Discovery cohort: nucleus classifier
@@ -38,14 +36,12 @@ The discovery cohort was stained for CD4, CD8, CD68 and CD163 without CD3. Becau
 │   ├── 05_MSPI_integrated_analysis.R
 │   ├── 06_clinical_subtype_figures.R
 │   ├── 07_Tables_S2_S3_clinicopathological.R
-│   ├── 08_Fig2_draw.R
-│   ├── 10_Fig1_draw.R
-│   ├── 11_Fig3d_draw.R
+│   ├── 08_Fig2_statistics.R
+│   ├── 10_Fig1a_patient_numbers.R
 │   ├── 13_Supplementary_Figures_S1_S2.R
 │   ├── 14_parity_sensitivity.R
 │   ├── 15_Supplementary_Figure_S4_qMSPI.R
 │   └── 16_Supplementary_Figure_S3_nucleus_classifier.R
-├── assets/                                    # Figure pages without the data panels (scripts 09 and 12)
 ├── CHANGELOG.md
 ├── CITATION.cff
 ├── LICENSE
@@ -124,7 +120,7 @@ Empirical cumulative distribution functions of nearest-neighbour distances from 
 
 **Script:** `R/04_Fig1fg_discovery_KM_survival.R`
 
-Kaplan-Meier analysis of M1- and M2-to-T cell affinity in the discovery cohort, dichotomised at optimal cutpoints (maximally selected rank statistics with bootstrap validation), restricted to patients with both scores. The panels of Figure 1f-g are drawn by script 10 with the same computation.
+Kaplan-Meier analysis of M1- and M2-to-T cell affinity in the discovery cohort, dichotomised at optimal cutpoints (maximally selected rank statistics with bootstrap validation), restricted to patients with both scores. Its Kaplan-Meier plots are the data panels of Figure 1f-g.
 
 **Dependencies:** R, foreign, data.table, survival, survminer, ggpubr, tidyverse
 
@@ -134,7 +130,7 @@ Kaplan-Meier analysis of M1- and M2-to-T cell affinity in the discovery cohort, 
 
 **Script:** `R/05_MSPI_integrated_analysis.R`
 
-All MSPI computations across both cohorts: MSPI and qMSPI, univariable and density-adjusted Cox models by subgroup, C-indices, clinical multivariable models and the pooled individual patient data analysis. Its tables are the source of Figures 1-3 (drawn by scripts 08, 10 and 11) and of several supplementary tables.
+All MSPI computations across both cohorts: MSPI and qMSPI, univariable and density-adjusted Cox models by subgroup, C-indices, clinical multivariable models and the pooled individual patient data analysis. Its tables and plots are the source of most data panels of Figures 1-3, among them the pooled analysis of Figure 3d, and of several supplementary tables.
 
 **Dependencies:** R, foreign, data.table, dplyr, tidyr, ggplot2, ggpubr, survival, survminer, openxlsx, boot, gridExtra, scales, forcats, car, flextable, officer, survcomp (Bioconductor)
 
@@ -148,8 +144,8 @@ Molecular subtype analyses, clinical associations, the additive M1 + M2 Cox mode
 
 | Output | Description |
 |-------|-------------|
-| **Fig. 1h** | Additive M1 + M2 Cox model and M1 x M2 interaction test (drawn by script 10) |
-| **Fig. 2b, 2d, 2e, 2h** | Subtype boxplots and Dunn's tests, MSPI HR by subtype, clinical multivariable models (drawn by script 08) |
+| **Fig. 1h** | Additive M1 + M2 Cox model and M1 x M2 interaction test (`discovery_M1M2_interaction_forest.pdf`) |
+| **Fig. 2d, 2e, 2h** | MSPI HR by subtype, clinical multivariable models |
 | **Suppl. Table S4** | Discovery cohort: clinicopathological features by qMSPI quadrant |
 | **Suppl. Table S5** | Discovery cohort: MSPI HRs by molecular subtype |
 | **Suppl. Tables S6-S8** | Discovery cohort: clinical multivariable Cox, early and young early luminal HRs and C-index |
@@ -170,25 +166,43 @@ Molecular subtype analyses, clinical associations, the additive M1 + M2 Cox mode
 | **Suppl. Table S3** | Validation cohort clinicopathological characteristics (all invasive) |
 | Additional table | Validation cohort ER-positive clinicopathological characteristics |
 
-The discovery numbers of Figure 1a are drawn by script 10.
+The discovery numbers of Figure 1a are counted by script 10.
 
 **Dependencies:** R, foreign, data.table, dplyr, openxlsx, flextable, officer
 
 ---
 
-### 08, 10, 11 and 09, 12 - Figures 1, 2 and 3 (R and Python)
+### 08 - Figure 2: statistics and plain panels (R)
 
-**Scripts:** `R/08_Fig2_draw.R`, `R/10_Fig1_draw.R`, `R/11_Fig3d_draw.R`, `python/09_Fig2_compose.py`, `python/12_Fig1_Fig3_compose.py`
+**Script:** `R/08_Fig2_statistics.R`
 
-The data panels of the figures, drawn from the outputs of scripts 05 and 06 (and the Kaplan-Meier, boxplot and pie computations they repeat) at the positions, scales, line widths, marker sizes, colours and fonts of the figure layout. Scripts 09 and 12 place them onto the figure pages in `assets/`, which hold everything that does not depend on the data (panel letters, labels, images and schematics, panels of the exploratory and validation cohorts).
+The numbers of Figure 2 that do not come from the tables of scripts 05 and 06, computed with the data preparation of script 05, and these panels as plain plots.
 
 | Output | Description |
 |-------|-------------|
-| **Fig. 1** | Panel a (discovery patient numbers), f and g (Kaplan-Meier by M1- and M2-to-T affinity), h (additive model) |
-| **Fig. 2** | All data panels a-h (f and g: Kaplan-Meier curves by MSPI quartile, cut within each subgroup) |
-| **Fig. 3** | Panel d (pooled analysis) |
+| **Fig. 2a** | qMSPI quadrants: medians of the affinity scores and patients per quadrant (scatter plot) |
+| **Fig. 2b** | T cell, M1-like and M2-like densities and MSPI by subtype, Dunn's tests with Benjamini-Hochberg correction (boxplots) |
+| **Fig. 2f, 2g** | Kaplan-Meier curves by MSPI quartile with the 4th vs 1st log-rank p, and the Type II Anova shares of the density-adjusted Cox model (pies) |
 
-**Dependencies:** R, foreign, data.table, survival, survminer, car, rstatix, grid, systemfonts, labeling; Python 3.8+, PyMuPDF
+All numbers are written to `./output/fig2_statistics/Fig2_statistics.tsv`. The C-indices (c, f, g), the MSPI HRs by subtype (d) and the clinical multivariable models (e, h) come from scripts 05 and 06.
+
+**Dependencies:** R, foreign, data.table, survival, car, rstatix
+
+---
+
+### 10 - Figure 1a: patient numbers (R)
+
+**Script:** `R/10_Fig1a_patient_numbers.R`
+
+Patients and events of the discovery MSPI analysis set by subtype, early-stage luminal disease and age group, as shown in Figure 1a (`./output/fig1a/Fig1a_patient_numbers.tsv`).
+
+**Dependencies:** R, foreign, data.table
+
+---
+
+### Figure pages
+
+The figure pages of the manuscript (Figures 1-3) were composed from the outputs of the scripts above by separate layout scripts, which place the data panels on the page together with the panel letters, labels, microphotographs and schematics. The layout scripts are not part of this repository. The data panels and all numbers they show come from the scripts listed here.
 
 ---
 
@@ -271,7 +285,7 @@ The clinical and spatial data used in this study are not publicly available due 
 
 1. Discovery cohort: `R/00a`, `R/00b`, `python/01_discovery_affinity_nucleus.py` and `R/01c` (about 5 minutes), then copy the three files named above to `./data/discovery/`. Validation cohort: `python/01_affinity_computation.py`.
 2. `R/02b` to `R/07` and `R/13` to `R/16`: each script loads its own inputs, so they can run in any order (script 05 takes about 7 minutes).
-3. Figures: `R/08_Fig2_draw.R`, `R/10_Fig1_draw.R` and `R/11_Fig3d_draw.R`, then `python/09_Fig2_compose.py` and `python/12_Fig1_Fig3_compose.py` (Figures 1-3 in `./output/fig1/`, `./output/fig2/` and `./output/fig3/`).
+3. Figure numbers and plain panels: `R/08_Fig2_statistics.R` and `R/10_Fig1a_patient_numbers.R` (in `./output/fig2_statistics/` and `./output/fig1a/`).
 
 ## Software environment
 

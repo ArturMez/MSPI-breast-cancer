@@ -7,7 +7,7 @@
 ##   ./data/validation/  NK_BRCA_for_affinity.txt [clinical.txt]
 ##                       BREAST_ENCIMA_affinity_CD3e_M1M2_myeloidpool_50um.txt [affinity_scores.txt]
 ##                       Huvuddatabas.xlsx [clinical_extra.xlsx]
-## Outputs: ./output/tables_S2_S3/ (the discovery numbers of Figure 1a are drawn by script 10)
+## Outputs: ./output/tables_S2_S3/ (the discovery numbers of Figure 1a are counted by script 10)
 ## In the code, bcy_* objects hold the discovery cohort and enc_* objects the validation cohort.
 ##
 ## Version 2 (nucleus-supported T cells): reads the discovery affinity scores of

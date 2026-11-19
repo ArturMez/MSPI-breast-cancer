@@ -7,8 +7,8 @@ authors:
     given-names: Artur
     orcid: "https://orcid.org/0000-0002-4394-2634"
     affiliation: "Vall d'Hebron Institute of Oncology (VHIO), Barcelona, Spain"
-version: 2.0.0
-date-released: 2026-11-16
+version: 2.0.1
+date-released: 2026-11-19
 doi: 10.5281/zenodo.20392440
 license: MIT
 repository-code: "https://github.com/ArturMez/MSPI-breast-cancer"
